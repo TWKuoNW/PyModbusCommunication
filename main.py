@@ -20,8 +20,7 @@ def modbusCRC(msg : str) -> int: # CRC calculator
     ba = crc.to_bytes(2, byteorder='little')
     return ba
 
-def modbus_run(ser,origin_send,data_length):
-    
+def modbus_run(ser, origin_send, data_length):
     bytes_send = bytes([int(x, 16) for x in origin_send]) # list to bytes
     crc = modbusCRC(bytes_send) # CRC calculator function
     origin_send.append(str('{:02X}'.format(crc[0]))) # append crc LO 
@@ -64,11 +63,9 @@ def insert_data_into_excel(file_path_and_name, new_data):
     workbook = openpyxl.load_workbook(file_path_and_name)
     sheet = workbook.active
     next_row = sheet.max_row + 1
-    for col_num, value in enumerate(new_data, start=1):
-        sheet.cell(row=next_row, column=col_num, value=value)
+    for col_num, value in enumerate(new_data, start = 1):
+        sheet.cell(row = next_row, column = col_num, value = value)
     workbook.save(file_path_and_name)
-
-    print("Excel insertion successful")
 # =================Excel function block=================
 
 # ================Tkinter function block================
@@ -96,7 +93,6 @@ def state():
         label_status.config(text="RUN",  bg = "#02DF82")
         check = True
 # ================Tkinter function block================
-
 def main():
     ser = serial.Serial('COM3', baudrate = 9600) # define COM PORT and baudrate
     while(boolean):   
@@ -109,20 +105,15 @@ def main():
             value2 = data[5] + data[6]
             temperature = int(value1, 16) # HEX to DEX
             humidity = int(value2, 16) 
-
             temperature = temperature / 10 # Temperature Conversion
             humidity = humidity / 10 # Humidity Conversion
-
+            
             print("溫度:", temperature, " 濕度:", humidity)
             # ============= Conversion and translate =============
-
+            
+            # ============= Save to Excel =============
             day_and_current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
             current_time = datetime.now().strftime("%H:%M:%S")      
-
-            # ============= Save to Excel and MySQL =============
-            original_date = str(datetime.today().date())
-            formatted_date = "t" + original_date.replace("-", "_")
-
             
             data_column = [
                 ["時間", "溫度", "濕度"]
@@ -139,7 +130,8 @@ def main():
             insert_data_into_excel(file_path_and_name, data_row) # insert data to excel
             
             write_to_text(data_dict) # data write to text
-            # ============= Save to Excel and MySQL =============                
+            # ============= Save to Excel =============                
+        
         t.sleep(2)
 
 main_thread = threading.Thread(target = main)  # define thread
