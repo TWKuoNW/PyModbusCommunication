@@ -1,12 +1,10 @@
 import time 
 import datetime
 import threading
-import openpyxl
+import openpyxl 
 import serial
 import os
 import tkinter as tk
-from tkinter import ttk
-import serial.tools.list_ports as COM_PORT_LIST
 
 # ================Modbus function block================
 def modbusCRC(msg : str) -> int: # CRC calculator
@@ -87,75 +85,71 @@ def close():
     root.destroy()
     
 def status():
-    global check
-    if(check):
-        label_status.config(text="STOP", bg = "#FA8072")
-        check = False
-    else:
+    global stop
+    if(stop):
         label_status.config(text="RUN",  bg = "#02DF82")
-        check = True
+        stop = False
+    else:
+        label_status.config(text="STOP", bg = "#FA8072")
+        stop = True
 
 def clear_data():
     text.delete("1.0", tk.END)
-
-def change_com():
-    global com
-    com = combobox_comport.get()
-    print(com)
-
 # ================Tkinter function block================
 def main():
-    ser = serial.Serial(com, baudrate = 9600) # define COM PORT and baudra
+    ser = ""
     while(boolean):   
-        if(check):
-            try:
-                origin_send = ["01", "04", "00", "01", "00", "02"] # request command
-                data = modbus_run(ser, origin_send, 9) # send command and get data
-            except:
-                print("COM PORT ERROR Trying to reconnect")
+        if(stop):
+            continue
+        try:
+            if(ser == ""):
+                ser = serial.Serial('COM4', baudrate = 9600) # define COM PORT and baudra
+            origin_send = ["01", "04", "00", "01", "00", "02"] # request command
+            data = modbus_run(ser, origin_send, 9) # send command and get data
+        except:
+            ser = ""
+            print("COM PORT ERROR Trying to reconnect", end = "") 
+            for i in range(3):
+                print('.', end = "")
                 time.sleep(1)
-                continue
-            # ============= Conversion and translate =============
-            data = [format(x, '02x') for x in data]
-            value1 = data[3] + data[4]
-            value2 = data[5] + data[6]
-            temperature = int(value1, 16) # HEX to DEX
-            humidity = int(value2, 16) 
-            temperature = temperature / 10 # Temperature Conversion
-            humidity = humidity / 10 # Humidity Conversion
-            
-            # print("溫度:", temperature, " 濕度:", humidity)
-            # ============= Conversion and translate =============
-            
-            # ============= Save to Excel =============
-            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
-            
-            data_column = [
-                ["時間", "溫度", "濕度"]
-            ]
-            data_row = [current_time, temperature, humidity]
-            
-            file_path_and_name = creat_log_and_excel(data_column)
-            
-            data_dict = { 
-                "time":current_time,
-                "temperature":temperature,
-                "humidity":humidity
-            }
-            insert_data_into_excel(file_path_and_name, data_row) # insert data to excel
-            
-            write_to_text(data_dict) # data write to text
-            # ============= Save to Excel =============                
+            continue
+        # ============= Conversion and translate =============
+        data = [format(x, '02x') for x in data]
+        value1 = data[3] + data[4]
+        value2 = data[5] + data[6]
+        temperature = int(value1, 16) # HEX to DEX
+        humidity = int(value2, 16) 
+        temperature = temperature / 10 # Temperature Conversion
+        humidity = humidity / 10 # Humidity Conversion
+        
+        # print("溫度:", temperature, " 濕度:", humidity)
+        # ============= Conversion and translate =============
+        
+        # ============= Save to Excel =============
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
+        
+        data_column = [
+            ["時間", "溫度", "濕度"]
+        ]
+        data_row = [current_time, temperature, humidity]
+        
+        file_path_and_name = creat_log_and_excel(data_column)
+        
+        data_dict = { 
+            "time":current_time,
+            "temperature":temperature,
+            "humidity":humidity
+        }
+        insert_data_into_excel(file_path_and_name, data_row) # insert data to excel
+        
+        write_to_text(data_dict) # data write to text
+        # ============= Save to Excel =============                
         
         time.sleep(2)
 
+# globle variable
 boolean = True
-check = True
-com = 'COM4'
-ports = COM_PORT_LIST.comports()
-options = []
-for port, desc, hwid in sorted(ports):
-    options.append(port)
+stop = False
 
 main_thread = threading.Thread(target = main)  # define thread
 main_thread.start() # thread start
@@ -165,7 +159,7 @@ root = tk.Tk()
 root.title("Sensor Reader")
 root.protocol("WM_DELETE_WINDOW", close)
 
-# creat label and button and Text Elements
+# creat label, button and Text Elements
 label_status = tk.Label(root, text = "RUN", width=10, height=7, bg = "#02DF82" )
 label_status.grid(row=0, column=0, rowspan=2)
 button_status = tk.Button(root, text = "RUN/STOP", command = status, width=10, height=2)
@@ -174,12 +168,8 @@ button_close = tk.Button(root, text = "CLOSE", command = close, width=10, height
 button_close.grid(row=3, column=0)
 button_clear_data = tk.Button(root, text = "ClearData", command = clear_data, width=10, height=2)
 button_clear_data.grid(row=4, column=0)
-combobox_comport = ttk.Combobox(root, values = options, width=30, height=1)
-combobox_comport.grid(row=0, column=1)
-button_comport = tk.Button(root, text = "ChangeCom", command = change_com, width=10, height=1)
-button_comport.grid(row=0, column=2)
 text = tk.Text(root, height = 20, width = 50)
-text.grid(row=1, column=1, rowspan=5, columnspan=2)
+text.grid(row=0, column=1, rowspan=5)
 
 # Run loop
 root.mainloop()
