@@ -1,10 +1,12 @@
-import time as t
-from datetime import datetime
+import time 
+import datetime
 import threading
 import openpyxl
 import serial
 import os
 import tkinter as tk
+from tkinter import ttk
+import serial.tools.list_ports as COM_PORT_LIST
 
 # ================Modbus function block================
 def modbusCRC(msg : str) -> int: # CRC calculator
@@ -41,7 +43,7 @@ def creat_log_and_excel(excel_column):
     log_folder_path = log_folder_path.replace("\\", "/") + "/log/"
     os.makedirs(log_folder_path, exist_ok=True)
 
-    target_file_name = str(datetime.today().date()) + ".xlsx" # Use today's date as the filename
+    target_file_name = str(datetime.datetime.today().date()) + ".xlsx" # Use today's date as the filename
     file_path_and_name = log_folder_path + target_file_name  # log_folder_path + target_file_name
 
     all_document = os.listdir(log_folder_path) # Get log folder all document
@@ -84,7 +86,7 @@ def close():
     print("Exiting the program.")
     root.destroy()
     
-def state():
+def status():
     global check
     if(check):
         label_status.config(text="STOP", bg = "#FA8072")
@@ -92,13 +94,27 @@ def state():
     else:
         label_status.config(text="RUN",  bg = "#02DF82")
         check = True
+
+def clear_data():
+    text.delete("1.0", tk.END)
+
+def change_com():
+    global com
+    com = combobox_comport.get()
+    print(com)
+
 # ================Tkinter function block================
 def main():
-    ser = serial.Serial('COM3', baudrate = 9600) # define COM PORT and baudrate
+    ser = serial.Serial(com, baudrate = 9600) # define COM PORT and baudra
     while(boolean):   
         if(check):
-            origin_send = ["01", "04", "00", "01", "00", "02"] # request command
-            data = modbus_run(ser, origin_send, 9) # send command and get data
+            try:
+                origin_send = ["01", "04", "00", "01", "00", "02"] # request command
+                data = modbus_run(ser, origin_send, 9) # send command and get data
+            except:
+                print("COM PORT ERROR Trying to reconnect")
+                time.sleep(1)
+                continue
             # ============= Conversion and translate =============
             data = [format(x, '02x') for x in data]
             value1 = data[3] + data[4]
@@ -108,12 +124,11 @@ def main():
             temperature = temperature / 10 # Temperature Conversion
             humidity = humidity / 10 # Humidity Conversion
             
-            print("溫度:", temperature, " 濕度:", humidity)
+            # print("溫度:", temperature, " 濕度:", humidity)
             # ============= Conversion and translate =============
             
             # ============= Save to Excel =============
-            day_and_current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
-            current_time = datetime.now().strftime("%H:%M:%S")      
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
             
             data_column = [
                 ["時間", "溫度", "濕度"]
@@ -123,7 +138,7 @@ def main():
             file_path_and_name = creat_log_and_excel(data_column)
             
             data_dict = { 
-                "time":day_and_current_time,
+                "time":current_time,
                 "temperature":temperature,
                 "humidity":humidity
             }
@@ -132,13 +147,18 @@ def main():
             write_to_text(data_dict) # data write to text
             # ============= Save to Excel =============                
         
-        t.sleep(2)
-
-main_thread = threading.Thread(target = main)  # define thread
-main_thread.start() # thread start
+        time.sleep(2)
 
 boolean = True
 check = True
+com = 'COM4'
+ports = COM_PORT_LIST.comports()
+options = []
+for port, desc, hwid in sorted(ports):
+    options.append(port)
+
+main_thread = threading.Thread(target = main)  # define thread
+main_thread.start() # thread start
 
 # creat Tkinter
 root = tk.Tk()
@@ -147,13 +167,19 @@ root.protocol("WM_DELETE_WINDOW", close)
 
 # creat label and button and Text Elements
 label_status = tk.Label(root, text = "RUN", width=10, height=7, bg = "#02DF82" )
-label_status.grid(row=0, column=0)
-button_stop = tk.Button(root, text = "RUN/STOP", command = state, width=10, height=2)
-button_stop.grid(row=1, column=0)
+label_status.grid(row=0, column=0, rowspan=2)
+button_status = tk.Button(root, text = "RUN/STOP", command = status, width=10, height=2)
+button_status.grid(row=2, column=0)
 button_close = tk.Button(root, text = "CLOSE", command = close, width=10, height=2)
-button_close.grid(row=2, column=0)
-text = tk.Text(root, height = 20, width = 49)
-text.grid(row=0, column=1 , rowspan=3)
+button_close.grid(row=3, column=0)
+button_clear_data = tk.Button(root, text = "ClearData", command = clear_data, width=10, height=2)
+button_clear_data.grid(row=4, column=0)
+combobox_comport = ttk.Combobox(root, values = options, width=30, height=1)
+combobox_comport.grid(row=0, column=1)
+button_comport = tk.Button(root, text = "ChangeCom", command = change_com, width=10, height=1)
+button_comport.grid(row=0, column=2)
+text = tk.Text(root, height = 20, width = 50)
+text.grid(row=1, column=1, rowspan=5, columnspan=2)
 
 # Run loop
 root.mainloop()
